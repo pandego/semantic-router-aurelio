@@ -15,7 +15,13 @@ from semantic_router.encoders.base import (
     AsymmetricSparseMixin,
     SparseEncoder,
 )
-from semantic_router.index import LocalIndex, PineconeIndex, PostgresIndex, QdrantIndex
+from semantic_router.index import (
+    BaseIndex,
+    LocalIndex,
+    PineconeIndex,
+    PostgresIndex,
+    QdrantIndex,
+)
 from semantic_router.llms import BaseLLM, OpenAILLM
 from semantic_router.route import Route
 from semantic_router.routers import HybridRouter, RouterConfig, SemanticRouter
@@ -257,6 +263,7 @@ def init_index(
     init_async_index: bool = False,
 ):
     """Initialize indexes for unit testing."""
+    index: BaseIndex
     if index_cls is QdrantIndex:
         index_name = index_name or f"test_{uuid.uuid4().hex}"
         return QdrantIndex(index_name=index_name, init_async_index=init_async_index)
@@ -269,9 +276,12 @@ def init_index(
             pytest.skip(
                 "Skipping Pinecone in cloud: set PINECONE_INDEX_NAME to an existing index to run."
             )
-        # Use local Pinecone instance
+        # Use local Pinecone instance. Include microseconds + a short uuid in
+        # the index name so parameterized tests that run within the same second
+        # don't collide on a shared index (pinecone-local persists indexes for
+        # the lifetime of the emulator container).
         index_name = (
-            f"test-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+            f"test-{datetime.now().strftime('%Y%m%d%H%M%S%f')}-{uuid.uuid4().hex[:6]}"
             if not index_name
             else index_name
         )
